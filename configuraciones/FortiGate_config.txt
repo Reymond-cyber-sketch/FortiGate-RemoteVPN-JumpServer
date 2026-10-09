@@ -1,0 +1,153 @@
+# ==========================================
+# FortiGate - Configuración final del LAB
+# ==========================================
+
+# Interfaces principales
+port1 = 198.51.100.98/30
+port2 = 10.10.10.1/30
+port3 = 10.24.96.137/29
+
+# IP secundaria de administración
+port2 secondary = 192.168.178.2/24
+
+# Rutas estáticas
+0.0.0.0/0        -> 198.51.100.97 via port1
+10.24.96.0/25    -> 10.10.10.2 via port2
+10.24.96.128/29  -> 10.10.10.2 via port2
+
+
+# ==========================================
+# Objetos de dirección
+# ==========================================
+
+config firewall address
+    edit "LAB-USER-PRIV"
+        set subnet 10.24.96.119 255.255.255.255
+    next
+
+    edit "LAB-USER-NOPRIV"
+        set subnet 10.24.96.120 255.255.255.255
+    next
+
+    edit "LAB-JUMP-SERVER"
+        set subnet 10.24.96.138 255.255.255.255
+        set associated-interface "port3"
+    next
+
+    edit "LAB-WEB-CAJA"
+        set subnet 10.24.96.130 255.255.255.255
+        set associated-interface "port2"
+    next
+
+    edit "VPN-CLIENT-POOL"
+        set type iprange
+        set start-ip 10.24.99.10
+        set end-ip 10.24.99.20
+    next
+end
+
+
+config firewall addrgrp
+    edit "LAB-USERS"
+        set member "LAB-USER-PRIV" "LAB-USER-NOPRIV"
+    next
+end
+
+
+# ==========================================
+# Servicio RDP
+# ==========================================
+
+config firewall service custom
+    edit "LAB-RDP"
+        set tcp-portrange 3389
+    next
+end
+
+
+# ==========================================
+# Políticas de seguridad
+# ==========================================
+
+config firewall policy
+
+    edit 1
+        set name "NOPRIV_DENY_ADMIN"
+        set srcintf "port2"
+        set dstintf "port3"
+        set srcaddr "LAB-USER-NOPRIV"
+        set dstaddr "LAB-JUMP-SERVER"
+        set action deny
+        set schedule "always"
+        set service "SSH" "LAB-RDP"
+        set logtraffic all
+    next
+
+    edit 2
+        set name "USERS_VPN_TO_JUMP"
+        set srcintf "port2" "REMOTE-JUMP"
+        set dstintf "port3"
+        set action accept
+        set srcaddr "LAB-USERS" "VPN-CLIENT-POOL"
+        set dstaddr "LAB-JUMP-SERVER"
+        set schedule "always"
+        set service "HTTPS" "SSH" "LAB-RDP"
+        set logtraffic all
+    next
+
+    edit 3
+        set name "JUMP_TO_WEB"
+        set srcintf "port3"
+        set dstintf "port2"
+        set action accept
+        set srcaddr "LAB-JUMP-SERVER"
+        set dstaddr "LAB-WEB-CAJA"
+        set schedule "always"
+        set service "HTTPS" "SSH" "LAB-RDP"
+        set logtraffic all
+    next
+
+end
+
+
+# ==========================================
+# VPN IPsec REMOTE-JUMP
+# ==========================================
+
+config vpn ipsec phase1-interface
+    edit "REMOTE-JUMP"
+        set type dynamic
+        set interface "port1"
+        set mode aggressive
+        set peertype any
+        set net-device disable
+        set mode-cfg enable
+        set proposal des-sha256
+        set dhgrp 14
+        set xauthtype auto
+        set authusrgrp "VPN-USERS"
+        set assign-ip-from name
+        set ipv4-name "VPN-CLIENT-POOL"
+        set ipv4-split-include "LAB-JUMP-SERVER"
+        set dpd on-idle
+        set dpd-retryinterval 10
+
+        # PSK omitida intencionalmente por seguridad.
+        # set psksecret "<REDACTED>"
+    next
+end
+
+
+config vpn ipsec phase2-interface
+    edit "REMOTE-JUMP-P2"
+        set phase1name "REMOTE-JUMP"
+        set proposal des-sha256
+        set pfs disable
+        set keepalive enable
+    next
+end
+
+
+# Usuario VPN:
+# vpnuser
+# Contraseña omitida intencionalmente.
