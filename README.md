@@ -3,7 +3,7 @@
 ## 🎥 Video de demostración
 
 > 📌 **Video del laboratorio:**  
-> [Agregar aquí el enlace del video]
+> [[Agregar aquí el enlace del video](https://www.youtube.com/watch?v=fuph3CgcL9g)]
 
 ---
 
